@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111">
+<title>VoxRT Wake-Word — Browser Demo</title>
+<style>
+  :root {
+    --bg: #111; --fg: #eee; --dim: #888; --hi: #4a90e2; --wake: #f6c445; --err: #e6614a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+         max-width: 720px; margin: 0 auto; padding: 1em; min-height: 100vh; }
+  h1 { margin: 0.3em 0 0.2em; font-size: 1.4em; }
+  .sub { color: var(--dim); font-size: 0.9em; margin: 0 0 1em; }
+  #startBtn { display: block; width: 100%; padding: 1.2em;
+              font-size: 1.1em; font-weight: 600; border: 0; border-radius: 12px;
+              background: var(--hi); color: white; cursor: pointer;
+              transition: background 0.15s ease; }
+  #startBtn:disabled { background: #333; color: var(--dim); cursor: default; }
+  #startBtn.listening { background: #2a7d3e; }
+  .row { display: flex; align-items: center; gap: 1em; margin: 1.2em 0 0.4em; }
+  .row .label { color: var(--dim); font-size: 0.85em; min-width: 6em; }
+  .row .value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.95em; }
+  .bar { height: 22px; background: #222; border-radius: 6px; overflow: hidden; }
+  .fill { height: 100%; width: 0%; background: var(--hi);
+          transition: width 0.05s linear, background 0.1s ease; }
+  .fill.high { background: var(--wake); }
+  #detections { border: 1px solid #222; border-radius: 8px; background: #0a0a0a;
+                padding: 0.8em; height: 320px; overflow-y: auto;
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                font-size: 0.85em; line-height: 1.5; }
+  #detections .stat { color: var(--dim); }
+  #detections .det { color: var(--wake); font-weight: 700; }
+  #detections .err { color: var(--err); }
+  .footer { color: var(--dim); font-size: 0.75em; margin-top: 2em; text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>VoxRT Wake-Word — Browser Demo</h1>
+<p class="sub">
+  ~200 KB WebAssembly runtime + 100 KB model, running entirely in this browser tab.
+  Say <b>"Hey Assistant"</b>.
+</p>
+
+<button id="startBtn">Tap to start listening</button>
+
+<div class="row">
+  <div class="label">Mic RMS</div>
+  <div class="value" id="rmsText">—</div>
+</div>
+<div class="bar"><div id="rmsFill" class="fill" style="background:#5a5"></div></div>
+
+<div class="row">
+  <div class="label">Peak (2 s window)</div>
+  <div class="value" id="peakText" style="font-size: 1.4em; font-weight: 600;">0.000</div>
+</div>
+<div class="row">
+  <div class="label">Session peak</div>
+  <div class="value" id="sessionPeakText">0.000</div>
+</div>
+
+<div class="row" style="margin-top: 0.6em;">
+  <button id="recBtn" style="padding: 0.6em 1em; background: #333; color: #eee; border: 1px solid #555; border-radius: 6px;">Record 5 s → download WAV</button>
+</div>
+
+<div class="row">
+  <div class="label">Live score</div>
+  <div class="value" id="scoreText">—</div>
+</div>
+<div class="bar"><div id="scoreFill" class="fill"></div></div>
+
+<div class="row" style="margin-top: 1.2em;">
+  <div class="label">Threshold</div>
+  <div class="value" style="display: flex; align-items: center; gap: 0.6em; width: 100%;">
+    <input type="range" id="threshSlider" min="0.1" max="0.99" step="0.01" value="0.9" style="flex: 1;">
+    <span id="threshText" style="min-width: 3em; text-align: right;">0.90</span>
+  </div>
+</div>
+
+<div class="row">
+  <div class="label">Audio</div>
+  <div class="value" id="acText">—</div>
+</div>
+
+<h2 style="font-size: 1.05em; margin: 1.4em 0 0.4em;">Performance</h2>
+
+<div class="row">
+  <div class="label">RTF (cumulative)</div>
+  <div class="value" id="rtfText" style="font-size: 1.4em; font-weight: 600; color: #7bd688;">—</div>
+</div>
+<div class="row">
+  <div class="label">Audio processed</div>
+  <div class="value" id="rtfAgeText">—</div>
+</div>
+<div class="row">
+  <div class="label">Push latency avg</div>
+  <div class="value" id="latText">—</div>
+</div>
+<div class="row" style="margin-top: 0.4em; gap: 0.6em;">
+  <button id="benchBtn"    style="padding: 0.6em 1em; background: #4a90e2; color: white; border: 0; border-radius: 6px; font-weight: 600;">Run 60 s benchmark</button>
+  <button id="rtfResetBtn" style="padding: 0.4em 0.8em; background: #333; color: #eee; border: 1px solid #555; border-radius: 6px; font-size: 0.85em;">Reset live counters</button>
+</div>
+
+<div class="row" style="margin-top: 0.6em;">
+  <div class="label">Bench RTF</div>
+  <div class="value" id="benchText" style="font-size: 1.4em; font-weight: 700; color: #ffb547;">—</div>
+</div>
+<div class="row">
+  <div class="label">Bench detail</div>
+  <div class="value" id="benchDetail" style="font-size: 0.85em;">click "Run 60 s benchmark" to measure</div>
+</div>
+
+<h2 style="font-size: 1.05em; margin: 1.5em 0 0.4em;">Log</h2>
+<div id="detections"></div>
+
+<p class="footer">
+  All audio is processed locally in your browser. No sample leaves this device.<br>
+  WebAssembly runtime: <span id="verText">…</span>
+</p>
+
+<script type="module">
+import init, { WakeWordEngine, version } from "./pkg/voxrt-wake-word-browser.js";
+
+// Minimal WAV encoder — 16-bit PCM mono, whatever sample rate the
+// AudioContext ended up with. Used by the "Record 5 s" button so we
+// can ship a real captured audio sample to the dev box and A/B it
+// against the C / Node engines that already work.
+function encodeWav16k(f32, sampleRate) {
+  const nSamples = f32.length;
+  const buf = new ArrayBuffer(44 + nSamples * 2);
+  const v = new DataView(buf);
+  const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+  writeStr(0, "RIFF");
+  v.setUint32(4, 36 + nSamples * 2, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  v.setUint32(16, 16, true);          // fmt chunk size
+  v.setUint16(20, 1, true);           // PCM
+  v.setUint16(22, 1, true);           // 1 channel
+  v.setUint32(24, sampleRate, true);
+  v.setUint32(28, sampleRate * 2, true); // byte rate
+  v.setUint16(32, 2, true);           // block align
+  v.setUint16(34, 16, true);          // bits per sample
+  writeStr(36, "data");
+  v.setUint32(40, nSamples * 2, true);
+  let off = 44;
+  for (let i = 0; i < nSamples; i++, off += 2) {
+    const s = Math.max(-1, Math.min(1, f32[i]));
+    v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return buf;
+}
+
+const startBtn = document.getElementById("startBtn");
+const detLog   = document.getElementById("detections");
+const scoreFill = document.getElementById("scoreFill");
+const scoreText = document.getElementById("scoreText");
+const peakText  = document.getElementById("peakText");
+const sessionPeakText = document.getElementById("sessionPeakText");
+const recBtn    = document.getElementById("recBtn");
+const rmsFill   = document.getElementById("rmsFill");
+const rmsText   = document.getElementById("rmsText");
+const acText    = document.getElementById("acText");
+const verText   = document.getElementById("verText");
+const rtfText     = document.getElementById("rtfText");
+const rtfAgeText  = document.getElementById("rtfAgeText");
+const latText     = document.getElementById("latText");
+const rtfResetBtn = document.getElementById("rtfResetBtn");
+const benchBtn    = document.getElementById("benchBtn");
+const benchText   = document.getElementById("benchText");
+const benchDetail = document.getElementById("benchDetail");
+const threshSlider = document.getElementById("threshSlider");
+const threshText   = document.getElementById("threshText");
+
+let engine = null;
+threshSlider.addEventListener("input", () => {
+  const v = parseFloat(threshSlider.value);
+  threshText.textContent = v.toFixed(2);
+  if (engine) engine.threshold = v;
+});
+
+function log(cls, msg) {
+  const el = document.createElement("div");
+  el.className = cls;
+  const t = new Date().toLocaleTimeString();
+  el.textContent = `[${t}] ${msg}`;
+  detLog.prepend(el);
+}
+
+startBtn.addEventListener("click", async () => {
+  startBtn.disabled = true;
+  startBtn.textContent = "Loading engine…";
+  try {
+    await init();
+    verText.textContent = `voxrt-wake-word-browser v${version()}`;
+    log("stat", `WASM engine loaded (v${version()})`);
+
+    startBtn.textContent = "Loading model…";
+    const modelBytes = new Uint8Array(
+      // Model ships alongside this HTML in the browser SDK's example
+      // directory — plaintext `.vxrt v2`, produced from an encrypted
+      // source on the dev box (where the master key lives) via our
+      // `vxrt-plaintext-convert` tool. Same-origin fetch, no CORS.
+      // In your own app you can bundle the file wherever you host
+      // your static assets.
+      await (await fetch("./voxrt_wake_word.vxrt")).arrayBuffer());
+    engine = WakeWordEngine.fromBytes(modelBytes);
+    engine.threshold = parseFloat(threshSlider.value);
+    log("stat", `model loaded: threshold=${engine.threshold.toFixed(2)} cooldownFrames=${engine.cooldownFrames}`);
+
+    startBtn.textContent = "Requesting mic…";
+    // Keep AGC + noise suppression ON — the model was trained on real
+    // consumer-mic distributions, and phone mics without AGC often
+    // sit 5-10× below normal RMS which starves the mel path.
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1,
+      },
+      video: false,
+    });
+
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ac = new AC({ sampleRate: 16000 });
+    await ac.resume();
+    log("stat", `AudioContext running at ${ac.sampleRate} Hz (asked 16000)`);
+    acText.textContent = `${ac.sampleRate} Hz`
+      + (ac.sampleRate !== 16000 ? "  ⚠ requested 16000" : "");
+
+    const src = ac.createMediaStreamSource(stream);
+    const proc = ac.createScriptProcessor(512, 1, 1);
+    // Silent sink so `audioprocess` fires without echoing mic to speakers.
+    const mute = ac.createGain(); mute.gain.value = 0;
+    const pcmBuf = new Int16Array(512);
+    let peakScore = 0;
+
+    // One-shot flags — surface the FIRST error into the UI log even
+    // if a browser lint or dev-tool hides it, then keep silent so we
+    // don't spam every 32 ms.
+    let loggedPushErr = false;
+    let audioProcessTicks = 0;
+
+    // Cumulative RTF (real-time factor). Browsers clamp
+    // `performance.now()` to 100 µs (Chrome) or 1 ms (Safari) for
+    // Spectre; our push takes ~100-500 µs, so any per-tick or short-
+    // window average jitters ±10× on quantization noise. The signal
+    // we actually want is `sum_wall / sum_audio` over enough pushes
+    // that the ±100 µs grain becomes < 1 % of the total — for a 32 ms
+    // push that means ~10 s of audio to hit steady state.
+    //
+    // Warmup is 2 s — JIT tier-up + AudioContext startup makes the
+    // first pushes 3-5× slower than steady state. Reset button below
+    // lets us re-baseline after any noticeable perf event.
+    const RTF_WARMUP_TICKS = 64;   // ~2 s
+    let rtfSumWall = 0;
+    let rtfSumAudio = 0;
+    let rtfTickCount = 0;
+
+    rtfResetBtn.addEventListener("click", () => {
+      rtfSumWall = 0;
+      rtfSumAudio = 0;
+      rtfTickCount = 0;
+      rtfText.textContent = "—";
+      rtfAgeText.textContent = "—";
+      latText.textContent = "—";
+      log("stat", "live perf counters reset");
+    });
+
+    // Offline benchmark — push 60 s of noise through the engine in a
+    // tight loop, time the whole run once. `performance.now()` is
+    // called O(1) per batch (not per push), so quantization noise
+    // is ~100 µs on 60 000 ms of audio = 0.0002 % — pure RTF signal.
+    //
+    // We suspend the live audio-callback path via `benchmarking = true`
+    // so the two engines don't race on shared state; call `reset()`
+    // before + after to clean the DW-conv FIFOs and rolling pool.
+    let benchmarking = false;
+    benchBtn.addEventListener("click", async () => {
+      if (benchmarking) return;
+      benchmarking = true;
+      benchBtn.disabled = true;
+      const savedThresh = engine.threshold;
+      const savedCooldown = engine.cooldownFrames;
+      engine.threshold = 1.1;   // impossible → no detections during bench
+      engine.cooldownFrames = 100000;
+      engine.reset();
+
+      const CHUNK = 512;
+      const TARGET_CHUNKS = Math.ceil(60 * 16000 / CHUNK);  // 1875
+      const BATCH = 250;
+      const buf = new Int16Array(CHUNK);
+      for (let j = 0; j < CHUNK; j++) buf[j] = ((Math.random() - 0.5) * 20000) | 0;
+
+      log("stat", `bench start: ${TARGET_CHUNKS} chunks × 32 ms = 60 s of audio, batch=${BATCH}`);
+      benchText.textContent = "running…";
+      benchDetail.textContent = "0 / " + TARGET_CHUNKS;
+
+      // 1 s warmup — JIT tier-up + I-cache prime.
+      for (let i = 0; i < 32; i++) engine.pushPcmI16(buf);
+      engine.reset();
+
+      // Timed pass, batched with UI-yield between batches.
+      let totalWallMs = 0;
+      let done = 0;
+      while (done < TARGET_CHUNKS) {
+        const n = Math.min(BATCH, TARGET_CHUNKS - done);
+        const tb = performance.now();
+        for (let k = 0; k < n; k++) engine.pushPcmI16(buf);
+        totalWallMs += performance.now() - tb;
+        done += n;
+        benchDetail.textContent = `${done} / ${TARGET_CHUNKS} — ${(done * 32 / 1000).toFixed(1)} s audio`;
+        await new Promise(r => setTimeout(r, 0));
+      }
+
+      const totalAudioMs = TARGET_CHUNKS * CHUNK / 16000 * 1000;
+      const rtf = totalWallMs / totalAudioMs;
+      const avgPushUs = totalWallMs * 1000 / TARGET_CHUNKS;
+      benchText.textContent = `${(rtf * 100).toFixed(3)}%`;
+      benchDetail.textContent =
+        `${totalWallMs.toFixed(0)} ms wall / ${(totalAudioMs / 1000).toFixed(0)} s audio · `
+        + `${avgPushUs.toFixed(0)} µs / push · ${TARGET_CHUNKS} chunks`;
+      log("stat", `bench: RTF=${(rtf * 100).toFixed(3)}%  ${avgPushUs.toFixed(0)} µs/push`);
+
+      engine.threshold = savedThresh;
+      engine.cooldownFrames = savedCooldown;
+      engine.reset();
+      benchBtn.disabled = false;
+      benchmarking = false;
+    });
+    let peakRecent = 0;
+    let peakRecentSince = performance.now();
+
+    // Optional 5-second raw-mic recorder — buffers Float32 samples,
+    // then encodes to a 16 kHz mono WAV and triggers download. Lets us
+    // ship a real audio sample to the dev box for A/B against the C
+    // + Node engines that already work.
+    let recording = null;
+    recBtn.addEventListener("click", () => {
+      if (recording) return;
+      recording = { buf: new Float32Array(ac.sampleRate * 5), pos: 0 };
+      recBtn.disabled = true;
+      recBtn.textContent = "Recording 5 s…";
+      log("stat", `recording 5 s from mic at ${ac.sampleRate} Hz`);
+    });
+
+    proc.addEventListener("audioprocess", (e) => {
+      const input = e.inputBuffer.getChannelData(0);
+      let sumSq = 0;
+      for (let i = 0; i < input.length; i++) {
+        const s = Math.max(-1, Math.min(1, input[i]));
+        sumSq += s * s;
+        pcmBuf[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      const rms = Math.sqrt(sumSq / input.length);
+      rmsFill.style.width = `${Math.min(100, rms / 0.05 * 100).toFixed(1)}%`;
+      rmsText.textContent = rms.toFixed(4);
+
+      // Recorder tap — accumulate raw f32 samples into the pending buffer.
+      if (recording) {
+        const n = Math.min(input.length, recording.buf.length - recording.pos);
+        recording.buf.set(input.subarray(0, n), recording.pos);
+        recording.pos += n;
+        if (recording.pos >= recording.buf.length) {
+          const wav = encodeWav16k(recording.buf, ac.sampleRate);
+          const url = URL.createObjectURL(new Blob([wav], { type: "audio/wav" }));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `voxrt-mic-${Date.now()}.wav`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          log("stat", `recorded ${recording.pos} samples at ${ac.sampleRate} Hz → download`);
+          recording = null;
+          recBtn.disabled = false;
+          recBtn.textContent = "Record 5 s → download WAV";
+        }
+      }
+
+      // Freeze the live path while the offline benchmark owns the
+      // engine — otherwise mic pushes race with bench pushes and
+      // both timings + detections are garbage.
+      if (benchmarking) return;
+
+      let dets, score;
+      const t0 = performance.now();
+      try {
+        dets = engine.pushPcmI16(pcmBuf);
+        score = engine.currentScore();
+      } catch (err) {
+        if (!loggedPushErr) {
+          loggedPushErr = true;
+          log("err", `pushPcmI16 threw: ${err.message || err}`);
+          log("err", `stack: ${(err.stack || "").split("\n").slice(0,3).join(" | ")}`);
+        }
+        return;
+      }
+
+      const wallMs = performance.now() - t0;
+      const audioMs = input.length / ac.sampleRate * 1000;
+
+      // Only accumulate after warmup — first ~2 s are JIT + AC startup.
+      if (audioProcessTicks > RTF_WARMUP_TICKS) {
+        rtfSumWall  += wallMs;
+        rtfSumAudio += audioMs;
+        rtfTickCount++;
+      }
+
+      // Update perf UI twice a second.
+      if (audioProcessTicks % 16 === 0 && rtfTickCount > 0) {
+        const rtfAvg = rtfSumWall / rtfSumAudio;
+        rtfText.textContent = `${(rtfAvg * 100).toFixed(2)}%`;
+        rtfAgeText.textContent = `${(rtfSumAudio / 1000).toFixed(1)} s`;
+        latText.textContent = `${(rtfSumWall / rtfTickCount * 1000).toFixed(0)} µs / push`;
+      }
+
+      if (score > peakScore) { peakScore = score; peakText.textContent = peakScore.toFixed(3); }
+      scoreFill.style.width = `${(score * 100).toFixed(1)}%`;
+      scoreFill.classList.toggle("high", score >= engine.threshold);
+      scoreText.textContent = score.toFixed(3);
+
+      // Heartbeat every ~1 s so we can prove the ML path ran.
+      audioProcessTicks++;
+      if (audioProcessTicks % 31 === 0) {
+        log("stat", `hb: ticks=${audioProcessTicks} score=${score.toFixed(3)} peak=${peakScore.toFixed(3)} rms=${rms.toFixed(4)}`);
+      }
+
+      for (const d of dets) {
+        log("det", `🎯 WAKE — t=${d.timestampSec.toFixed(3)}s score=${d.score.toFixed(4)}`);
+        if (navigator.vibrate) navigator.vibrate(150);
+      }
+    });
+
+    src.connect(proc);
+    proc.connect(mute);
+    mute.connect(ac.destination);
+
+    startBtn.classList.add("listening");
+    startBtn.textContent = "Listening — say 'Hey Assistant'";
+    log("stat", `listening at 16 kHz / 512-sample chunks (${(512/16).toFixed(0)} ms)`);
+  } catch (err) {
+    log("err", `error: ${err.message || err}`);
+    startBtn.disabled = false;
+    startBtn.textContent = "Tap to start listening";
+  }
+});
+</script>
+</body>
+</html>

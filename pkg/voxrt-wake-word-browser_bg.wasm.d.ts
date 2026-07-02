@@ -1,0 +1,32 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const __wbg_detection_free: (a: number, b: number) => void;
+export const __wbg_wakewordengine_free: (a: number, b: number) => void;
+export const detection_frameIndex: (a: number) => number;
+export const detection_score: (a: number) => number;
+export const detection_timestampSec: (a: number) => number;
+export const version: (a: number) => void;
+export const wakewordengine_cooldownFrames: (a: number) => number;
+export const wakewordengine_currentScore: (a: number) => number;
+export const wakewordengine_fromBytes: (a: number, b: number, c: number) => void;
+export const wakewordengine_pushPcmF32: (a: number, b: number, c: number, d: number) => void;
+export const wakewordengine_pushPcmI16: (a: number, b: number, c: number, d: number) => void;
+export const wakewordengine_reset: (a: number) => void;
+export const wakewordengine_set_cooldownFrames: (a: number, b: number) => void;
+export const wakewordengine_set_threshold: (a: number, b: number) => void;
+export const wakewordengine_threshold: (a: number) => number;
+export const voxrt_wake_word_abi_version: () => number;
+export const voxrt_wake_word_create: (a: number, b: number, c: number) => number;
+export const voxrt_wake_word_current_score: (a: number, b: number) => number;
+export const voxrt_wake_word_destroy: (a: number) => void;
+export const voxrt_wake_word_push_pcm_f32: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+export const voxrt_wake_word_push_pcm_i16: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+export const voxrt_wake_word_reset: (a: number) => number;
+export const voxrt_wake_word_set_cooldown_frames: (a: number, b: number) => number;
+export const voxrt_wake_word_set_threshold: (a: number, b: number) => number;
+export const voxrt_wake_word_version: () => number;
+export const __wbindgen_export: (a: number, b: number, c: number) => void;
+export const __wbindgen_export2: (a: number, b: number) => number;
+export const __wbindgen_export3: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_add_to_stack_pointer: (a: number) => number;

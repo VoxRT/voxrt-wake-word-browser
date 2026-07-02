@@ -1,0 +1,48 @@
+{
+  "name": "@voxrt/wake-word-browser",
+  "version": "0.1.0",
+  "description": "On-device wake-word detection in the browser — WebAssembly runtime + AudioWorklet integration, ~200 KB bundle, no server required",
+  "type": "module",
+  "main": "voxrt-wake-word-browser.js",
+  "types": "voxrt-wake-word-browser.d.ts",
+  "exports": {
+    ".": {
+      "types": "./voxrt-wake-word-browser.d.ts",
+      "import": "./voxrt-wake-word-browser.js"
+    },
+    "./voxrt-wake-word-browser_bg.wasm": "./voxrt-wake-word-browser_bg.wasm"
+  },
+  "files": [
+    "voxrt-wake-word-browser.js",
+    "voxrt-wake-word-browser.d.ts",
+    "voxrt-wake-word-browser_bg.wasm",
+    "voxrt-wake-word-browser_bg.wasm.d.ts",
+    "voxrt_wake_word.vxrt",
+    "README.md",
+    "LICENSE",
+    "LICENSE-BINARY"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://voxrt.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VoxRT/voxrt-wake-word-browser.git"
+  },
+  "bugs": {
+    "url": "https://github.com/VoxRT/voxrt-wake-word-browser/issues"
+  },
+  "keywords": [
+    "wake-word",
+    "keyword-spotting",
+    "kws",
+    "voice",
+    "speech",
+    "voice-assistant",
+    "browser",
+    "webassembly",
+    "wasm",
+    "on-device",
+    "voxrt"
+  ],
+  "sideEffects": false
+}
