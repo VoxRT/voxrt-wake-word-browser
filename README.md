@@ -3,24 +3,20 @@
 Always-on wake-phrase detection running **entirely inside a browser tab**, no server, no download-first, no native install. Detects the phrase **"Hey Assistant"** on 16 kHz mono microphone audio.
 
 - **Status: shipping, browser-ready.** Verified end-to-end via live microphone on Chrome (V8) and Safari (JSC) across Mac and mobile.
-- Current version: `v0.1.0`
-- Target: any modern browser with WebAssembly SIMD128 + AudioWorklet — Chrome 91+, Firefox 89+, Safari 16.4+, iOS Safari 16.4+, Android Chrome, Edge 91+.
-- Bundle: ~200 KB WebAssembly runtime + 100 KB `.vxrt` model = ~300 KB total download.
+- Current version: `v0.1.1`
+- Target: any modern browser with WebAssembly SIMD128 — Chrome 91+, Firefox 89+, Safari 16.4+, iOS Safari 16.4+, Android Chrome, Edge 91+.
+- Bundle: ~170 KB WebAssembly runtime + ~100 KB `.vxrt` model = ~275 KB total download.
 - License: Apache-2.0 (wrapper sources) · proprietary (compiled runtime, redistribution allowed via this SDK)
-
-## Try it in 30 seconds
-
-Live demo: **[voxrt.github.io/voxrt-wake-word-browser/](https://voxrt.github.io/voxrt-wake-word-browser/)** — click "Start listening", say "Hey Assistant".
 
 ## Positioning — read this before shipping to production
 
 The three deployment tiers we support, most-secure first:
 
-| Tier | SDK | Model delivery | Anti-RE bar | Recommended for |
-|---|---|---|---|---|
-| **Native** | [Android](https://github.com/VoxRT/voxrt-wake-word-android) / [iOS](https://github.com/VoxRT/voxrt-wake-word-ios) / [Linux](https://github.com/VoxRT/voxrt-wake-word-linux) | Embedded in the app / SDK asset | Full (ELF strip, RELRO, symbol allowlist, AES-256-GCM weights, `obfstr!` on strings, planned anti-ptrace + text-hash integrity) | Production consumer apps, embedded devices, offline appliances |
-| **Browser (this SDK)** | **`@voxrt/wake-word-browser`** (npm) | Bundled `.vxrt`, or fetched from your CDN | Partial: `obfstr!` for compile-time strings, AES-GCM weight encryption, wasm-opt name mangling. **WASM is decompilable in Chrome DevTools by design** — RE bar is fundamentally lower than native binaries. | Free demos, prototypes, marketing landing pages, quick internal tools |
-| **Browser + server-gated model** _(v0.2+ roadmap)_ | Same npm package, `.vxrt` fetched from an auth-token gated endpoint | Runtime asks your backend for a signed model URL per session | Same as above, plus revocable model access + audit trail | Commercial browser deployments where model IP matters more than device reach |
+| Tier | SDK | Model delivery | Recommended for |
+|---|---|---|---|
+| **Native** | [Android](https://github.com/VoxRT/voxrt-wake-word-android) / [iOS](https://github.com/VoxRT/voxrt-wake-word-ios) / [Linux](https://github.com/VoxRT/voxrt-wake-word-linux) | Embedded in the app / SDK asset, AES-256-GCM encrypted `.vxrt` | Production consumer apps, embedded devices, offline appliances |
+| **Browser (this SDK)** | **`@voxrt/wake-word-browser`** (npm) | Bundled plaintext `.vxrt` — same model bytes as the native SDKs, without the AES-GCM envelope | Free demos, prototypes, marketing landing pages, quick internal tools |
+| **Browser + server-gated model** _(v0.2+ roadmap)_ | Same npm package | `.vxrt` fetched from an auth-token-gated endpoint per session — revocable + auditable | Commercial browser deployments where model IP matters more than device reach |
 
 **If your product monetises the wake-word capability itself (custom phrase, brand-specific), we recommend the native SDKs.** Browsers give a low-friction demo surface and prototyping speed, not maximum-security model distribution.
 
@@ -59,16 +55,21 @@ WASM SIMD128 recovers most of the native-NEON perf on the same chip (2.4× penal
 npm install @voxrt/wake-word-browser
 ```
 
-Or CDN:
+Or CDN (both files sit next to each other in the published package):
 
 ```html
 <script type="module">
   import init, { WakeWordEngine } from
-    "https://unpkg.com/@voxrt/wake-word-browser@0.1.0/voxrt-wake-word-browser.js";
+    "https://unpkg.com/@voxrt/wake-word-browser@0.1.1/voxrt-wake-word-browser.js";
+  await init();
+  const bytes = new Uint8Array(await (await fetch(
+    "https://unpkg.com/@voxrt/wake-word-browser@0.1.1/voxrt_wake_word.vxrt"
+  )).arrayBuffer());
+  const engine = WakeWordEngine.fromBytes(bytes);
 </script>
 ```
 
-The npm package ships everything you need in one install: the WebAssembly runtime, the JavaScript glue + TypeScript types, **and the wake-phrase model file** (`voxrt_wake_word.vxrt`, plaintext v2 — the SDK build is compiled without a decrypt key, so there's no crypto material anywhere in the shipped binary and no risk to the native SDKs' model IP).
+The npm package ships everything you need in one install: the WebAssembly runtime, the JavaScript glue + TypeScript types, **and the wake-phrase model file** (`voxrt_wake_word.vxrt`, plaintext v2 — the browser build is compiled without a decrypt key, so there's no crypto material anywhere in the shipped binary and no risk to the native SDKs' model IP).
 
 If you want a custom-phrase or brand-specific model, contact help@voxrt.com — those ship through the native SDKs. See the [tier table](#positioning--read-this-before-shipping-to-production) at the top of this README for the security trade-off.
 
@@ -163,7 +164,7 @@ WebAssembly SIMD128 is stable in every modern browser:
 | Firefox | 89 | June 2021 |
 | Safari (JSC) — desktop + iOS | 16.4 | Mar 2023 |
 
-If you must support older Safari (<16.4), we don't ship a scalar-fallback build in v0.1.x. The `AudioWorkletNode` API this SDK relies on has the same 16.4 floor in Safari, so there is no useful earlier target.
+If you must support older Safari (<16.4), we don't ship a scalar-fallback build in v0.1.x — the runtime hard-requires SIMD128. Older engines will fail at `init()`.
 
 ## License
 

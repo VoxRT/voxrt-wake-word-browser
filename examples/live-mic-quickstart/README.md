@@ -2,7 +2,7 @@
 
 Single-page browser demo:
 
-- Loads `@voxrt/wake-word-browser` v0.1.0 runtime + `voxrt_wake_word.vxrt` v0.1.0 model from GitHub CDN.
+- Loads `@voxrt/wake-word-browser` v0.1.1 runtime + `voxrt_wake_word.vxrt` v0.1.0 model from GitHub CDN.
 - Requests microphone permission and pushes real audio into the engine every 32 ms.
 - Live UI: mic RMS bar, peak-score meter, threshold slider, cumulative RTF counter, `🎯 WAKE` event log, and a one-tap 60-second synthetic benchmark you can use for cross-device perf comparison.
 - Runs entirely locally — no sample of your audio leaves the tab.

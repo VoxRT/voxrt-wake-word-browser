@@ -1,6 +1,6 @@
 {
   "name": "@voxrt/wake-word-browser",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "On-device wake-word detection in the browser — WebAssembly runtime + AudioWorklet integration, ~200 KB bundle, no server required",
   "type": "module",
   "main": "voxrt-wake-word-browser.js",
