@@ -169,5 +169,5 @@ If you must support older Safari (<16.4), we don't ship a scalar-fallback build 
 ## License
 
 - **Wrapper sources** (`voxrt_wake_word_browser` crate, wasm-bindgen glue, examples): Apache-2.0.
-- **Compiled runtime** (`voxrt-wake-word-browser_bg.wasm` and its symbol table): proprietary binary. Redistribution is allowed **only as an unmodified part of this SDK package**. See [`LICENSE-BINARY`](LICENSE-BINARY).
-- **Wake-phrase weights** (`voxrt_wake_word.vxrt` fetched at runtime): proprietary in-house model, trained on synthetic and licensed speech, no upstream license obligations.
+- **Compiled runtime** (`voxrt-wake-word-browser_bg.wasm` and its symbol table): proprietary binary. The unmodified runtime may be incorporated and redistributed in your applications and products.. See [`LICENSE-BINARY`](LICENSE-BINARY).
+- **Wake-phrase weights** (`voxrt_wake_word.vxrt` fetched at runtime): proprietary to Wiseport Ltd., trained on synthetic and licensed speech; not derived from third-party model checkpoints subject to attribution or copyleft requirements.
